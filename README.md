@@ -30,5 +30,5 @@ var people = manager.Query<Person>()
      .OrderByDesc(nameof(Person.Surname))
      .Get();
      
-int delted = manager.Query<Person>().Where(new { Surname = "Smith"}).Delete();
+int numberOfdeletedRows = manager.Query<Person>().Where(new { Surname = "Smith"}).Delete();
 ```
