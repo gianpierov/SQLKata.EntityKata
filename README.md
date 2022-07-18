@@ -4,7 +4,7 @@
 Example of an entity with diffent columns name on db
 
 Using entity Person that represents a record in table People
-```
+``` cs
 [Table("People")]
 public class Person
 {
