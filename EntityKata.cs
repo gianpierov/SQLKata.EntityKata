@@ -1,0 +1,81 @@
+﻿using System.Data;
+using System.Data.SqlClient;
+using System.Reflection;
+using System.Transactions;
+using SqlKata.Compilers;
+using SqlKata.Execution;
+using IsolationLevel = System.Transactions.IsolationLevel;
+
+namespace EntityKata;
+
+/// <summary>
+/// Gestione delle entità usando SQLKata 
+/// </summary>
+public class EntityKataManager : IDisposable
+{
+    private bool _disposedValue;
+
+    /// <summary>
+    /// Oggetto QueryFactory
+    /// </summary>
+    public QueryFactory Factory { get; }
+
+    /// <summary>
+    /// Costruttore
+    /// </summary>
+    public EntityKataManager(string connectionString)
+    {
+        //Factory = new QueryFactory(new SqlConnection(AppSettings.Configuration["ConnectionString:IFILAV"]), new SqlServerCompiler());
+        Factory = new QueryFactory(new SqlConnection(connectionString), new SqlServerCompiler());
+    }
+
+    /// <summary>
+    /// Inizia una transazione
+    /// </summary>
+    /// <returns></returns>
+    public IDbTransaction BeginTransaction()
+    {
+        Factory.Connection.Open();        
+        return Factory.Connection.BeginTransaction();
+        
+    }
+
+    /// <summary>
+    /// Dispose per la gestione della chiusura della connessione al DB
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Dispose per la gestione della chiusura della connessione al DB
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposedValue) return;
+        if (disposing && Factory.Connection != null)
+        {
+            Factory.Connection.Dispose();
+            Factory.Connection = null;
+        }
+        _disposedValue = true;
+    }
+    
+    /// <summary>
+    /// Gestore delle entità 
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public EntityQuery<T> Query<T>()
+    {
+        return new EntityQuery<T>(Factory);
+    }
+
+}
+
+
+
+
+
