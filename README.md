@@ -1,10 +1,10 @@
 # SQLKata.EntityKata
-Entity Modeler using SQLKata
+## Entity Modeler using SQLKata
 
 Example
 
 Using entity Person that represents a record in table People
-
+```
 [Table("People")]
 public class Person
 {
@@ -31,3 +31,4 @@ var people = manager.Query<Person>()
      .Get();
      
 int delted = manager.Query<Person>().Where(new { Surname = "Smith"}).Delete();
+```
