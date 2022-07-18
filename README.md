@@ -1,7 +1,7 @@
 # SQLKata.EntityKata
 ## Entity Modeler using SQLKata
 
-Example
+Example of an entity with diffent columns name on db
 
 Using entity Person that represents a record in table People
 ```
@@ -29,6 +29,11 @@ var people = manager.Query<Person>()
      .Where(new {Name = "Gianpiero"})
      .OrderByDesc(nameof(Person.Surname))
      .Get();
+     
+foreach (person in people) 
+{
+    Console.WriteLine($"{person.Name} {person.Surname}");
+}
      
 int numberOfdeletedRows = manager.Query<Person>().Where(new { Surname = "Smith"}).Delete();
 ```
