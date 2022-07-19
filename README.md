@@ -14,47 +14,20 @@ This is the first release for optimization and testing.
 
 Using entity Person that represents a record in table People
 ``` cs
-
-// identity class is seperated for convenience
-[Table("People")]
-public class PersonIdentity
-{
-    [Identity]
-    [Field("PersonId")]
-    public int Id { get; set; }
-}
-
-[Table("People")]
-public class Person : PersonIdentity 
-{
-    [Field("PersonName")]
-    public string FirstName { get; set; }
-    [Field("PersonLastName")]
-    public string LastName { get; set; }
-    [Field("PersonAge")]
-    public int Age { get; set; }
-    [Field("PersonPhone")]
-    public string Phone { get; set; }
-    [Field("PersonEmail")]
-    public string Email { get; set; }
-}
-
-var env = new EntityKataManager(new MySqlConnection("Server=localhost;Database=entitkatatest;Uid=root;Pwd=;")
+var env = new EntityKataService(new MySqlConnection("Server=localhost;Database=entitkatatest;Uid=root;Pwd=;")
     , new MySqlCompiler());
 
-var peopleManager = env.Query<Person>();
+var peopleManager = env.Create<Person>();
 
 var people = peopleManager.Get();
 
 foreach(var person in people) {
     Console.WriteLine("{0} {1}", person.FirstName, person.LastName);
 }
-
-// if you have a separated Id class you can use it, otherwise 
-// you can use an anonymous class
-// Both of the following are valid    
-people = peopleManager.Where(new Person {Id = 2}).Get();
-people = peopleManager.Where(new {Id = 2}).Get();
+    
+people = peopleManager
+    .Where(new Person {Id = 2})
+    .Get();
 
 var insertedRows = peopleManager.Insert(new Person
 {
