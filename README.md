@@ -27,7 +27,6 @@ public class PersonIdentity
 [Table("People")]
 public class Person : PersonIdentity 
 {
-
     [Field("PersonName")]
     public string FirstName { get; set; }
     [Field("PersonLastName")]
