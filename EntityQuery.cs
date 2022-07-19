@@ -13,7 +13,7 @@ public class EntityQuery<T>
     /// </summary>
     private readonly QueryFactory _kataFactory;
 
-    private readonly Query _query;
+    private Query _query;
 
     /// <summary>
     /// Main type of the class
@@ -34,6 +34,7 @@ public class EntityQuery<T>
     /// Cached columns names
     /// </summary>
     private Dictionary<Type, string[]> _ColumnNames = new ();
+    private Dictionary<Type, string[]> _ColumnNamesWithoutIdentities = new ();
 
     /// <summary>
     /// Cached properties
@@ -48,7 +49,11 @@ public class EntityQuery<T>
         // Save Tablename and Fields with attributes for the mainType
         updateTableNameAndFieldsCache(_mainType);
         
-        // Create the main Query instance
+        InitializeQuery();
+    }
+
+    private void InitializeQuery()
+    {
         _query = _kataFactory.Query(_TableNames[_mainType]);
     }
 
@@ -173,7 +178,9 @@ public class EntityQuery<T>
     /// <returns></returns>
     public int Delete(IDbTransaction transaction = null)
     {
-        return _query.Delete(transaction);
+        var returnValue = _query.Delete(transaction);
+        InitializeQuery();
+        return returnValue;
     }
     
     /// <summary>
@@ -204,7 +211,9 @@ public class EntityQuery<T>
             }
         }
         
-        return _query.Update(updateToValuesList, transaction);
+        var returnValue = _query.Update(updateToValuesList, transaction);
+        InitializeQuery();
+        return returnValue;
     }
 
     /// <summary>
@@ -236,6 +245,7 @@ public class EntityQuery<T>
         if (!_propertyNames.TryAdd(type, new Dictionary<string, string>())) return;
 
         var columns = new List<string>();
+        var columnsNoIdentities = new List<string>();
 
         var properties = type.GetProperties(BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
         _properties.Add(type, properties);
@@ -248,10 +258,13 @@ public class EntityQuery<T>
             var fieldName = ((FieldAttribute) attribute).Name;
             var columnName = _TableNames[type] + "." + fieldName;
             columns.Add(columnName);
+            var identityAttribute = property.GetCustomAttribute(typeof(IdentityAttribute));
+            if (identityAttribute is null)  columnsNoIdentities.Add(columnName);
             propertyNamesDictionary.Add(property.Name, columnName);
         }
 
         _ColumnNames.Add(type, columns.ToArray());
+        _ColumnNamesWithoutIdentities.Add(type, columnsNoIdentities.ToArray());
     }
 
     /// <summary>
@@ -269,7 +282,9 @@ public class EntityQuery<T>
     /// <returns></returns>
     public bool Exist(IDbTransaction transaction = null)
     {
-        return GetSelect().Get(transaction).Any(); //Exists(transaction) to change with new version of SQLKata 
+        var returnValue = GetSelect().Get(transaction).Any(); //Exists(transaction) to change with new version of SQLKata
+        InitializeQuery();
+        return returnValue;
     }
 
     /// <summary>
@@ -285,8 +300,10 @@ public class EntityQuery<T>
         var record = GetSelect().FirstOrDefault(transaction);
         if (record is null) return default; 
         
-        return FillWithData(record);
-        
+        var returnValue = FillWithData(record);
+        InitializeQuery();
+        return returnValue;
+
     }
 
     /// <summary>
@@ -295,7 +312,9 @@ public class EntityQuery<T>
     /// <returns></returns>
     public IEnumerable<T> Get(IDbTransaction transaction = null)
     {
-        return FillAllWithData(GetSelect().Get(transaction));
+        var returnValue = FillAllWithData(GetSelect().Get(transaction));
+        InitializeQuery();
+        return returnValue;
     }
 
     /// <summary>
@@ -336,7 +355,9 @@ public class EntityQuery<T>
             valuesToInsert.Add(rowValues);
         }
 
-        return _query.Insert(_ColumnNames[_mainType], valuesToInsert, transaction);
+        var returnValue = _query.Insert(_ColumnNamesWithoutIdentities[_mainType], valuesToInsert, transaction);
+        InitializeQuery();
+        return returnValue;
     }
 
     /// <summary>
@@ -361,8 +382,10 @@ public class EntityQuery<T>
             }
         }
 
-        return _kataFactory.Query(_TableNames[_mainType])
+        var returnValue = _kataFactory.Query(_TableNames[_mainType])
             .InsertGetId<R>(dictionaryToInsert, transaction);
+        InitializeQuery();
+        return returnValue;
     }
 
     /// <summary>
@@ -373,7 +396,9 @@ public class EntityQuery<T>
     /// <returns></returns>
     public IEnumerable<T> Paginate(int page = 1, int itemsPerPage = 10)
     {
-        return FillAllWithData(GetSelect().Paginate(page, itemsPerPage).List);
+        var returnValue = FillAllWithData(GetSelect().Paginate(page, itemsPerPage).List);
+        InitializeQuery();
+        return returnValue;
     }
 
     /// <summary>
