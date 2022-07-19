@@ -1,10 +1,6 @@
 ﻿using System.Data;
-using System.Data.SqlClient;
-using System.Reflection;
-using System.Transactions;
 using SqlKata.Compilers;
 using SqlKata.Execution;
-using IsolationLevel = System.Transactions.IsolationLevel;
 
 namespace EntityKata;
 
@@ -13,6 +9,7 @@ namespace EntityKata;
 /// </summary>
 public class EntityKataManager : IDisposable
 {
+    
     private bool _disposedValue;
 
     /// <summary>
@@ -23,10 +20,9 @@ public class EntityKataManager : IDisposable
     /// <summary>
     /// Costruttore
     /// </summary>
-    public EntityKataManager(string connectionString)
+    public EntityKataManager(IDbConnection connection, Compiler compiler)
     {
-        //Factory = new QueryFactory(new SqlConnection(AppSettings.Configuration["ConnectionString:IFILAV"]), new SqlServerCompiler());
-        Factory = new QueryFactory(new SqlConnection(connectionString), new SqlServerCompiler());
+        Factory = new QueryFactory(connection, compiler);
     }
 
     /// <summary>
