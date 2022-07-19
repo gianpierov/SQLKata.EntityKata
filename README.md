@@ -14,6 +14,8 @@ This is the first release for optimization and testing.
 
 Using entity Person that represents a record in table People
 ``` cs
+// a separated class form identity can be convenient
+[Table("People")]
 public class PersonIdentity
 {
     [Identity]
