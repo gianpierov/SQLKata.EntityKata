@@ -14,11 +14,9 @@ public class Person
     public int? PersonId { get; set; }
     
     [Field("Person_Name")]
-    [Identity]
     public string? PersonName { get; set; }
     
     [Field("Person_Surname")]
-    [Identity]
     public string? Surname { get; set; }
         
 }
