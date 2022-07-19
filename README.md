@@ -1,7 +1,14 @@
 # SQLKata.EntityKata
 ## Entity Modeler using SQLKata
 
-Example of an entity with diffent columns name on db
+The idea is to focus the code using only entities names instead of SQL queries to model the data.
+The library is based on SQLKata and does all the translations under the hood. 
+
+Example of an entity with different columns name on db
+If a property doesn't have the field attribute it will be skipped.
+
+This is the first release for optimization and testing. 
+More methods (and examples) will be added in the future.
 
 Using entity Person that represents a record in table People
 ``` cs
