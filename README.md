@@ -24,10 +24,12 @@ var people = peopleManager.Get();
 foreach(var person in people) {
     Console.WriteLine("{0} {1}", person.FirstName, person.LastName);
 }
-    
-people = peopleManager
-    .Where(new Person {Id = 2})
-    .Get();
+
+// if you have a separated Id class you can use it, otherwise 
+// you can use an anonymous class
+// Both of the following are valid    
+people = peopleManager.Where(new Person {Id = 2}).Get();
+people = peopleManager.Where(new {Id = 2}).Get();
 
 var insertedRows = peopleManager.Insert(new Person
 {
