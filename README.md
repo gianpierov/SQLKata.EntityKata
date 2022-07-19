@@ -10,7 +10,7 @@ If a property doesn't have the field attribute it will be skipped.
 
 This is the first release for optimization and testing. 
 
-## More methods (and examples) will be added in the future.
+## More methods (and examples) will be added soon.
 
 Using entity Person that represents a record in table People
 ``` cs
