@@ -13,6 +13,8 @@ public class EntityQuery<T>
     /// </summary>
     private readonly QueryFactory _kataFactory;
 
+    private readonly Query _query;
+
     /// <summary>
     /// Main type of the class
     /// </summary>
@@ -22,6 +24,11 @@ public class EntityQuery<T>
     /// Cached Table names 
     /// </summary>
     private Dictionary<Type, string> _TableNames = new ();
+    
+    /// <summary>
+    /// Cache of property name->fieldname by type of the class
+    /// </summary>
+    private Dictionary<Type, Dictionary<string, string>> _propertyNames = new ();
 
     /// <summary>
     /// Cached columns names
@@ -33,22 +40,16 @@ public class EntityQuery<T>
     /// </summary>
     private Dictionary<Type, IEnumerable<PropertyInfo>> _properties = new ();
 
-    /// <summary>
-    /// Where clause
-    /// </summary>
-    //private List<KeyValuePair<string, object?>> _where = new List<KeyValuePair<string, object?>>();
-    private Dictionary<string, object?> _where = new ();
-
-    private List<string> _orderBy = new ();
-    private bool _orderByAscending = true;
-
     public EntityQuery(QueryFactory sqlKataFactory)
     {
         _kataFactory = sqlKataFactory;
         _mainType = typeof(T);
 
-        // Save Tablename and Fields with attributes
+        // Save Tablename and Fields with attributes for the mainType
         updateTableNameAndFieldsCache(_mainType);
+        
+        // Create the main Query instance
+        _query = _kataFactory.Query(_TableNames[_mainType]);
     }
 
 
@@ -60,8 +61,8 @@ public class EntityQuery<T>
     /// <returns></returns>
     public EntityQuery<T> OrderBy(string column, Type? type = null)
     {
-        _orderByAscending = true;
-        return Order(new[] {column}, type);
+        _query.OrderBy(Order(new[] {column}, type).ToArray());
+        return this;
     }
 
     /// <summary>
@@ -72,8 +73,8 @@ public class EntityQuery<T>
     /// <returns></returns>
     public EntityQuery<T> OrderByDesc(string column, Type? type = null)
     {
-        _orderByAscending = false;
-        return Order(new[] {column}, type);
+        _query.OrderByDesc(Order(new[] {column}, type).ToArray());
+        return this;
     }
 
     /// <summary>
@@ -84,8 +85,8 @@ public class EntityQuery<T>
     /// <returns></returns>
     public EntityQuery<T> OrderBy(string[] columns, Type? type = null)
     {
-        _orderByAscending = true;
-        return Order(columns, type);
+        _query.OrderBy(Order(columns, type).ToArray());
+        return this;
     }
 
     /// <summary>
@@ -96,8 +97,8 @@ public class EntityQuery<T>
     /// <returns></returns>
     public EntityQuery<T> OrderByDesc(string[] columns, Type? type = null)
     {
-        _orderByAscending = false;
-        return Order(columns, type);
+        _query.OrderByDesc(Order(columns, type).ToArray());
+        return this;
     }
 
     /// <summary>
@@ -108,10 +109,12 @@ public class EntityQuery<T>
     /// <returns></returns>
     /// <exception cref="ArgumentNullException"></exception>
     /// <exception cref="ArgumentException"></exception>
-    public EntityQuery<T> Order(string[] columns, Type? type = null)
+    private List<string> Order(string[] columns, Type? type = null)
     {
         if (columns is null) throw new ArgumentNullException(nameof(columns));
 
+        var orderByColumnsList = new List<string>();
+        
         foreach (var column in columns)
         {
             var typeOfColumnsObject = type ?? typeof(T);
@@ -120,14 +123,16 @@ public class EntityQuery<T>
             if (referenceProperty is null)
                 throw new ArgumentException($"Property {column} is not matching type {typeOfColumnsObject.Name}");
 
+            
             var attribute = referenceProperty.GetCustomAttribute(typeof(FieldAttribute));
             if (attribute != null)
             {
-                _orderBy.Add(_TableNames[typeOfColumnsObject] + "." + ((FieldAttribute) attribute).Name);
+                orderByColumnsList.Add(_TableNames[typeOfColumnsObject] + "." + ((FieldAttribute) attribute).Name);
             }
+            
         }
 
-        return this;
+        return orderByColumnsList;
     }
 
     public EntityQuery<T> Where(object where, Type? type = null)
@@ -154,7 +159,7 @@ public class EntityQuery<T>
                 // _where.Add(new KeyValuePair<string, object?>(
                 //     _TableNames[typeOfWhereClause] + "." + ((FieldAttribute) attribute).Name,
                 //     property.GetValue(where)));
-                _where.Add(_TableNames[typeOfWhereClause] + "." + ((FieldAttribute) attribute).Name,
+                _query.Where(_TableNames[typeOfWhereClause] + "." + ((FieldAttribute) attribute).Name,
                     property.GetValue(where));
             }
         }
@@ -168,10 +173,7 @@ public class EntityQuery<T>
     /// <returns></returns>
     public int Delete(IDbTransaction transaction = null)
     {
-        if (_orderBy.Count > 0)
-            throw new InvalidOperationException("Cannot use OrderBy()/OrderByDesc and Delete() together");
-
-        return GetCurrentQuery().Delete(transaction);
+        return _query.Delete(transaction);
     }
     
     /// <summary>
@@ -182,8 +184,6 @@ public class EntityQuery<T>
     /// <exception cref="InvalidOperationException"></exception>
     public int Update(object updateToValues, IDbTransaction transaction = null)
     {
-        if (_orderBy.Count > 0)
-            throw new InvalidOperationException("Cannot use OrderBy()/OrderByDesc and Update() together");
 
         var updateToValuesList = new Dictionary<string, object?>();
         
@@ -204,9 +204,14 @@ public class EntityQuery<T>
             }
         }
         
-        return GetCurrentQuery().Update(updateToValuesList, transaction);
+        return _query.Update(updateToValuesList, transaction);
     }
 
+    /// <summary>
+    /// Check if the object used an argument is anonymous type
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <returns></returns>
     private static bool IsAnonymous(object obj)
     {
         var type = obj.GetType();
@@ -227,6 +232,9 @@ public class EntityQuery<T>
 
         if (!_TableNames.TryAdd(type, ((TableAttribute) tableAttribue).Name)) return;
 
+        var propertyNamesDictionary = new Dictionary<string, string>();
+        if (!_propertyNames.TryAdd(type, new Dictionary<string, string>())) return;
+
         var columns = new List<string>();
 
         var properties = type.GetProperties(BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
@@ -234,32 +242,25 @@ public class EntityQuery<T>
         foreach (var property in properties)
         {
             var attribute = property.GetCustomAttribute(typeof(FieldAttribute));
-            if (attribute != null)
-            {
-                columns.Add(((FieldAttribute) attribute).Name);
-            }
+            
+            if (attribute == null) continue;
+            
+            var fieldName = ((FieldAttribute) attribute).Name;
+            var columnName = _TableNames[type] + "." + fieldName;
+            columns.Add(columnName);
+            propertyNamesDictionary.Add(property.Name, columnName);
         }
 
         _ColumnNames.Add(type, columns.ToArray());
     }
 
-    private Query GetCurrentQuery()
+    /// <summary>
+    /// Get columns name and set the select statement 
+    /// </summary>
+    /// <returns></returns>
+    private Query GetSelect()
     {
-        // columns
-        var query = _kataFactory.Query(_TableNames[_mainType])
-            .Select(_ColumnNames[_mainType]);
-
-        // where
-        if (_where.Count > 0) query.Where( _where);
-
-        // orderby
-        if (_orderBy.Count > 0)
-        {
-            if (_orderByAscending) query.OrderBy(_orderBy.ToArray());
-            else query.OrderByDesc(_orderBy.ToArray());
-        }
-
-        return query;
+        return _query.Select(_ColumnNames[_mainType]);
     }
 
     /// <summary>
@@ -268,7 +269,7 @@ public class EntityQuery<T>
     /// <returns></returns>
     public bool Exist(IDbTransaction transaction = null)
     {
-        return GetCurrentQuery().Get(transaction).Any(); //Exists(transaction) solo nelle versioni successive di sqlkata 
+        return GetSelect().Get(transaction).Any(); //Exists(transaction) to change with new version of SQLKata 
     }
 
     /// <summary>
@@ -281,7 +282,7 @@ public class EntityQuery<T>
         // var result = query.FirstOrDefault();
         // return FillNewInstanceWithData(GetCurrentQuery().FirstOrDefault());
 
-        var record = GetCurrentQuery().FirstOrDefault(transaction);
+        var record = GetSelect().FirstOrDefault(transaction);
         if (record is null) return default; 
         
         return FillWithData(record);
@@ -294,7 +295,7 @@ public class EntityQuery<T>
     /// <returns></returns>
     public IEnumerable<T> Get(IDbTransaction transaction = null)
     {
-        return FillAllWithData(GetCurrentQuery().Get(transaction));
+        return FillAllWithData(GetSelect().Get(transaction));
     }
 
     /// <summary>
@@ -335,8 +336,7 @@ public class EntityQuery<T>
             valuesToInsert.Add(rowValues);
         }
 
-        return _kataFactory.Query(_TableNames[_mainType])
-            .Insert(_ColumnNames[_mainType], valuesToInsert, transaction);
+        return _query.Insert(_ColumnNames[_mainType], valuesToInsert, transaction);
     }
 
     /// <summary>
@@ -373,7 +373,7 @@ public class EntityQuery<T>
     /// <returns></returns>
     public IEnumerable<T> Paginate(int page = 1, int itemsPerPage = 10)
     {
-        return FillAllWithData(GetCurrentQuery().Paginate(page, itemsPerPage).List);
+        return FillAllWithData(GetSelect().Paginate(page, itemsPerPage).List);
     }
 
     /// <summary>
@@ -414,16 +414,14 @@ public class EntityQuery<T>
         foreach (var property in properties)
         {
             var attribute = property.GetCustomAttribute(typeof(FieldAttribute));
-            if (attribute != null)
+            if (attribute == null) continue;
+            if (property.PropertyType == typeof(bool?) || property.PropertyType == typeof(bool))
             {
-                if (property.PropertyType == typeof(bool?) || property.PropertyType == typeof(bool))
-                {
-                    property.SetValue(instance, dati[((FieldAttribute) attribute).Name] is 0 ? false : true);
-                }
-                else
-                {
-                    property.SetValue(instance, dati[((FieldAttribute) attribute).Name]);
-                }
+                property.SetValue(instance, dati[((FieldAttribute) attribute).Name] is not 0);
+            }
+            else
+            {
+                property.SetValue(instance, dati[((FieldAttribute) attribute).Name]);
             }
         }
     }

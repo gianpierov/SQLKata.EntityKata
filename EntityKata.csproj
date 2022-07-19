@@ -4,13 +4,15 @@
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PackageId>Entitykata_Gianpiero_Vecchi</PackageId>
-        <Version>1.0.0</Version>
+        <PackageId>SQLKata.EntityKata</PackageId>
+        <Version>1.0.0-alpha</Version>
         <Authors>Gianpiero Vecchi</Authors>
         <Description>Entity Manager using SQLKata</Description>
-        <PackageProjectUrl>www.gianpierovecchi.com</PackageProjectUrl>
+        <PackageProjectUrl>https://github.com/gianpierov/SQLKata.EntityKata</PackageProjectUrl>
+	    <RepositoryUrl>https://github.com/gianpierov/SQLKata.EntityKata</RepositoryUrl>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-	    <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
+	    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+	    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     </PropertyGroup>
 
     <ItemGroup>
