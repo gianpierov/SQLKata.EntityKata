@@ -14,6 +14,29 @@ This is the first release for optimization and testing.
 
 Using entity Person that represents a record in table People
 ``` cs
+public class PersonIdentity
+{
+    [Identity]
+    [Field("PersonId")]
+    public int Id { get; set; }
+}
+
+[Table("People")]
+public class Person : PersonIdentity 
+{
+
+    [Field("PersonName")]
+    public string FirstName { get; set; }
+    [Field("PersonLastName")]
+    public string LastName { get; set; }
+    [Field("PersonAge")]
+    public int Age { get; set; }
+    [Field("PersonPhone")]
+    public string Phone { get; set; }
+    [Field("PersonEmail")]
+    public string Email { get; set; }
+}
+
 var env = new EntityKataService(new MySqlConnection("Server=localhost;Database=entitkatatest;Uid=root;Pwd=;")
     , new MySqlCompiler());
 
