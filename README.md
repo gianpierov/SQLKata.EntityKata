@@ -12,7 +12,23 @@ This is the first release for optimization and testing.
 
 ## More methods (and examples) will be added soon.
 
-Using entity Person that represents a record in table People
+### Having the Table:
+``` mysql
+create table people
+(
+    PersonId       int auto_increment
+        primary key,
+    PersonName     varchar(50)  null,
+    PersonLastName varchar(50)  null,
+    PersonAge      int          null,
+    PersonPhone    varchar(50)  null,
+    PersonEmail    varchar(100) null,
+    constraint People_PersonId_uindex
+        unique (PersonId)
+);
+```
+
+### You can use an entity Person that represents a record in table People
 ``` cs
 // a separated class form identity can be convenient
 [Table("People")]
