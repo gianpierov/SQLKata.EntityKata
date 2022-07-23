@@ -42,7 +42,7 @@ public class Person : PersonIdentity
 var env = new EntityKataService(new MySqlConnection("Server=localhost;Database=entitkatatest;Uid=root;Pwd=;")
     , new MySqlCompiler());
 
-var peopleManager = env.Create<Person>();
+var peopleManager = env.New<Person>();
 
 var people = peopleManager.Get();
 
@@ -56,6 +56,11 @@ foreach(var person in people) {
 people = peopleManager.Where(new Person {Id = 2}).Get();
 people = peopleManager.Where(new {Id = 2}).Get();
 
+people = peopleManager
+    .OrderBy(nameof(Person.LastName))
+    .Where(new {FirstName = "Gianpiero"})
+    .Get();
+
 var insertedRows = peopleManager.Insert(new Person
 {
     Age = 33,
@@ -67,9 +72,30 @@ var insertedRows = peopleManager.Insert(new Person
 
 Console.WriteLine("Inserted rows: " + insertedRows);
 
-var deletedRows = peopleManager.Where(new {FirstName = "Marlon"}).Delete();
+// you can use the same manager for the same type 
+// you don't need to create a new one
 
-Console.WriteLine("Deleted rows: " + deletedRows);
+peopleManager
+    .Where(new PersonIdentity {Id = 2})
+    .Update(new
+    {
+        FirstName = "John", 
+        LastName = "Smith"
+    });
+
+if (peopleManager.Where(new {LastName = "Bereny"}).Exists()) {
+    Console.WriteLine("Found Bereny");
+    var deletedRows = peopleManager.Where(new {FirstName = "Marlon"}).Delete();
+    Console.WriteLine("Deleted rows: " + deletedRows);
+}
+
+var firstPersonSmith = peopleManager
+    .Where(new {LastName = "Smith"})
+    .FirstOrDefault();
+
+if (firstPersonSmith != null) {
+    Console.WriteLine("First person with Smith last name: " + firstPersonSmith.FirstName);
+}
 
 people = peopleManager
     .OrderByDesc(nameof(Person.LastName))
@@ -78,4 +104,5 @@ people = peopleManager
 foreach(var person in people) {
     Console.WriteLine("{0} {1}", person.FirstName, person.LastName);
 }
+
 ```

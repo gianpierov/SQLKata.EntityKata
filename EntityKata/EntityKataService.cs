@@ -1,77 +1,72 @@
-﻿using System.Data;
+﻿using System;
+using System.Data;
 using SqlKata.Compilers;
 using SqlKata.Execution;
 
-namespace EntityKata;
-
-/// <summary>
-/// Gestione delle entità usando SQLKata 
-/// </summary>
-public class EntityKataService : IDisposable
+namespace EntityKata
 {
-    
-    private bool _disposedValue;
-
     /// <summary>
-    /// Oggetto QueryFactory
+    /// Gestione delle entità usando SQLKata 
     /// </summary>
-    public QueryFactory Factory { get; }
-
-    /// <summary>
-    /// Costruttore
-    /// </summary>
-    public EntityKataService(IDbConnection connection, Compiler compiler)
+    public class EntityKataService : IDisposable
     {
-        Factory = new QueryFactory(connection, compiler);
-    }
+        private bool _disposedValue;
 
-    /// <summary>
-    /// Inizia una transazione
-    /// </summary>
-    /// <returns></returns>
-    public IDbTransaction BeginTransaction()
-    {
-        Factory.Connection.Open();        
-        return Factory.Connection.BeginTransaction();
-        
-    }
+        /// <summary>
+        /// Exposed SQLKata Factory
+        /// </summary>
+        public QueryFactory Factory { get; }
 
-    /// <summary>
-    /// Dispose per la gestione della chiusura della connessione al DB
-    /// </summary>
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Dispose per la gestione della chiusura della connessione al DB
-    /// </summary>
-    protected virtual void Dispose(bool disposing)
-    {
-        if (_disposedValue) return;
-        if (disposing && Factory.Connection != null)
+        /// <summary>
+        /// Constructor  
+        /// </summary>
+        public EntityKataService(IDbConnection connection, Compiler compiler, int timeout = 30)
         {
-            Factory.Connection.Dispose();
-            Factory.Connection = null;
+            Factory = new QueryFactory(connection, compiler, timeout);
         }
-        _disposedValue = true;
-    }
-    
-    /// <summary>
-    /// Gestore delle entità 
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
-    public EntityManager<T> Create<T>()
-    {
-        return new EntityManager<T>(Factory);
-    }
 
+        /// <summary>
+        /// Inizia una transazione
+        /// </summary>
+        /// <returns></returns>
+        public IDbTransaction BeginTransaction()
+        {
+            Factory.Connection.Open();
+            return Factory.Connection.BeginTransaction();
+        }
+
+        /// <summary>
+        /// Dispose per la gestione della chiusura della connessione al DB
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Dispose per la gestione della chiusura della connessione al DB
+        /// </summary>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposedValue) return;
+            if (disposing && Factory.Connection != null)
+            {
+                Factory.Connection.Dispose();
+                Factory.Connection = null;
+            }
+
+            _disposedValue = true;
+        }
+
+        /// <summary>
+        /// Instances a new entity
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public EntityManager<T> New<T>()
+        {
+            return new EntityManager<T>(Factory);
+        }
+    }
 }
-
-
-
-
-
