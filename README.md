@@ -44,9 +44,11 @@ var env = new EntityKataService(new MySqlConnection("Server=localhost;Database=e
 
 var peopleManager = env.New<Person>();
 
-var people = peopleManager.Get();
+var people = peopleManager.Get(); // select all 
+people = peopleManager.Paginate(1, 10); // select first 10 people
 
-foreach(var person in people) {
+foreach (var person in people)
+{
     Console.WriteLine("{0} {1}", person.FirstName, person.LastName);
 }
 
@@ -55,6 +57,8 @@ foreach(var person in people) {
 // Both of the following are valid    
 people = peopleManager.Where(new Person {Id = 2}).Get();
 people = peopleManager.Where(new {Id = 2}).Get();
+people = peopleManager.Where(new {Id = new GreaterThan(2)}).Get();
+people = peopleManager.Where(new {Id = new GreaterThan {Value = 2}}).Get();
 
 people = peopleManager
     .OrderBy(nameof(Person.LastName))
@@ -79,12 +83,14 @@ peopleManager
     .Where(new PersonIdentity {Id = 2})
     .Update(new
     {
-        FirstName = "John", 
+        FirstName = "John",
         LastName = "Smith"
     });
 
-if (peopleManager.Where(new {LastName = "Bereny"}).Exists()) {
+if (peopleManager.Where(new {LastName = "Bereny"}).Exists())
+{
     Console.WriteLine("Found Bereny");
+
     var deletedRows = peopleManager.Where(new {FirstName = "Marlon"}).Delete();
     Console.WriteLine("Deleted rows: " + deletedRows);
 }
@@ -93,16 +99,20 @@ var firstPersonSmith = peopleManager
     .Where(new {LastName = "Smith"})
     .FirstOrDefault();
 
-if (firstPersonSmith != null) {
-    Console.WriteLine("First person with Smith last name: " + firstPersonSmith.FirstName);
-}
+if (firstPersonSmith != null) Console.WriteLine($"{firstPersonSmith.FirstName} is the first person last name Smith");
 
 people = peopleManager
     .OrderByDesc(nameof(Person.LastName))
     .Get();
 
-foreach(var person in people) {
-    Console.WriteLine("{0} {1}", person.FirstName, person.LastName);
-}
+// you can also use an object and concatenate different orders
+people = peopleManager.Order(new
+{
+    LastName = Ordering.Ascending,
+    FirstName = Ordering.Descending
+}).Get();
+
+foreach (var person in people) Console.WriteLine("{0} {1}", person.FirstName, person.LastName);
+
 
 ```
