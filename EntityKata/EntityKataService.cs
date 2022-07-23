@@ -6,7 +6,7 @@ using SqlKata.Execution;
 namespace EntityKata
 {
     /// <summary>
-    /// Gestione delle entità usando SQLKata 
+    /// Main service manager 
     /// </summary>
     public class EntityKataService : IDisposable
     {

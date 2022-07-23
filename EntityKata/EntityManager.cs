@@ -106,6 +106,44 @@ namespace EntityKata
         }
 
         /// <summary>
+        /// OrderBy using anonymous object
+        /// </summary>
+        /// <param name="columns">object with columns name</param>
+        /// <param name="type">Referring entity type</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public EntityManager<T> Order(object columns, Type type = null)
+        {
+            if (type == null) type = _mainType;
+            
+            if (columns is null) throw new ArgumentNullException(nameof(columns));
+            
+            var perperties = columns.GetType().GetProperties(BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+            foreach (var property in perperties)
+            {
+                var referenceProperty = type.GetProperty(property.Name);
+                if (referenceProperty == null) throw new ArgumentException("Column not in main type");
+            
+                var value = property.GetValue(columns);
+
+                if (!Enum.TryParse(value.ToString(), out Ordering ordering)) throw new ArgumentException("Invalid ordering");
+
+                switch (ordering)
+                {
+                    case Ordering.Ascending: OrderBy(property.Name, type);
+                        break;
+                    case  Ordering.Descending: OrderByDesc(property.Name, type);
+                        break;
+                    default:
+                        throw new ArgumentException("Invalid ordering");
+                } 
+            }
+
+            return this;
+        }
+
+        /// <summary>
         /// Order by multiple columns
         /// </summary>
         /// <param name="columns"></param>
@@ -140,34 +178,68 @@ namespace EntityKata
 
         public EntityManager<T> Where(object where, Type type = null)
         {
+
             if (where is null) throw new ArgumentNullException(nameof(where));
 
             var whereObjectType = where.GetType();
+            var typeOfWhereClause = !IsAnonymous(where) ? where.GetType() : type ?? typeof(T);
+            updateTableNameAndFieldsCache(typeOfWhereClause);
 
             var keyProperties =
                 whereObjectType.GetProperties(BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
             foreach (var property in keyProperties)
             {
-                var typeOfWhereClause = !IsAnonymous(where) ? where.GetType() : type ?? typeof(T);
-
-                updateTableNameAndFieldsCache(typeOfWhereClause);
-
+                
                 var referenceProperty = typeOfWhereClause.GetProperty(property.Name);
                 if (referenceProperty is null)
-                    throw new ArgumentException(
-                        $"Property {property.Name} is not matching type {typeOfWhereClause.Name}");
+                    throw new ArgumentException($"Property {property.Name} is not matching type {typeOfWhereClause.Name}");
 
                 var attribute = referenceProperty.GetCustomAttribute(typeof(FieldAttribute));
                 if (attribute != null)
                 {
-                    // _where.Add(new KeyValuePair<string, object?>(
-                    //     _TableNames[typeOfWhereClause] + "." + ((FieldAttribute) attribute).Name,
-                    //     property.GetValue(where)));
-                    Query.Where(_TableNames[typeOfWhereClause] + "." + ((FieldAttribute) attribute).Name,
-                        property.GetValue(where));
+
+                    var fieldName = _TableNames[typeOfWhereClause] + "." + ((FieldAttribute) attribute).Name;
+                    var value = property.GetValue(where);
+
+                    if (value == null || value.GetType().IsPrimitive || value is string)
+                    {
+                        Query.Where(fieldName, value);
+                    }
+                    else
+                    {
+                        var comparisonOperator = "";
+                        
+                        switch (value.GetType().ToString())
+                        {
+                            case "EntityKata.EqualTo":
+                                comparisonOperator = "=";
+                                break;
+                            case "EntityKata.GreaterThan":
+                                comparisonOperator = ">";
+                                break;
+                            case "EntityKata.GreaterThanOrEqualTo":
+                                comparisonOperator = ">=";
+                                break;
+                            case "EntityKata.LessThan":
+                                comparisonOperator = "<";
+                                break;
+                            case "EntityKata.LessThanOrEqualTo":
+                                comparisonOperator = "<=";
+                                break;
+                            default:
+                                throw new ArgumentException("Bad comparsion type");
+                            
+                        }
+
+                        var innerProperty = value.GetType().GetProperties()[0];
+                        if (innerProperty.Name != "Value") throw new ArgumentException("Bad comparsion type");
+                        
+                        Query.Where(fieldName, comparisonOperator, innerProperty.GetValue(value));
+                    }
+                    
                 }
             }
-
+            
             return this;
         }
 
@@ -300,7 +372,7 @@ namespace EntityKata
             var record = GetSelect().FirstOrDefault(transaction);
             if (record is null) return default;
 
-            var returnValue = FillWithData((object)record);
+            T returnValue = this.FillWithData((object) record);
             InitializeQuery();
             return returnValue;
         }

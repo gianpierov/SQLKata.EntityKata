@@ -3,7 +3,7 @@
 namespace EntityKata
 {
     /// <summary>
-    ///  Attributi per la gestione Entity Kata 
+    ///  Attribute for Fields 
     /// </summary>
     [System.AttributeUsage(AttributeTargets.Property)]
     public class FieldAttribute : System.Attribute
@@ -16,6 +16,9 @@ namespace EntityKata
         }
     }
 
+    /// <summary>
+    /// Attribute for Table names
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
     public class TableAttribute : System.Attribute
     {
@@ -27,6 +30,9 @@ namespace EntityKata
         }
     }
 
+    /// <summary>
+    /// Attribute for autoincrement fields
+    /// </summary>
     [AttributeUsage(AttributeTargets.Property)]
     public class AutoIncrementAttribute : System.Attribute
     {
