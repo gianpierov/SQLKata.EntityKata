@@ -6,12 +6,4 @@
         Descending
     }
     
-    public enum Comparing
-    {
-        LessThan,
-        LessThanOrEqualTo,
-        EqualTo,
-        GreaterThanOrEqualTo,
-        GreaterThan
-    }
 }
