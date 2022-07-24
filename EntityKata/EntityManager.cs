@@ -1,7 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Dynamic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using SqlKata;
@@ -24,6 +26,11 @@ namespace EntityKata
         private readonly Type _mainType;
 
         /// <summary>
+        /// Last table used in the query
+        /// </summary>
+        private Type _lastJoinedType;
+
+        /// <summary>
         /// Cached Table names 
         /// </summary>
         private Dictionary<Type, string> _TableNames = new Dictionary<Type, string>();
@@ -32,6 +39,8 @@ namespace EntityKata
         /// Cached columns names
         /// </summary>
         private Dictionary<Type, string[]> _ColumnNames = new Dictionary<Type, string[]>();
+
+        private Dictionary<string, string> _propertieNamesByFieldName = new Dictionary<string, string>();
 
         private Dictionary<Type, string[]> _ColumnNamesWithoutAutoincrement = new Dictionary<Type, string[]>();
 
@@ -54,6 +63,7 @@ namespace EntityKata
         private void InitializeQuery()
         {
             Query = _kataFactory.Query(_TableNames[_mainType]);
+            _lastJoinedType = _mainType;
         }
 
 
@@ -175,7 +185,15 @@ namespace EntityKata
 
             return orderByColumnsList;
         }
-
+        
+        /// <summary>
+        /// Where clause
+        /// </summary>
+        /// <param name="where"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
         public EntityManager<T> Where(object where, Type type = null)
         {
 
@@ -242,6 +260,14 @@ namespace EntityKata
             
             return this;
         }
+        
+        // public EntityManager<T> Join<J>(string first, string second, string op = "=", string joinType = "inner join")
+        // {
+        //     
+        //     
+        //     return this;
+        // }
+        
 
         /// <summary>
         /// Delete records from table
@@ -313,7 +339,7 @@ namespace EntityKata
             if (_TableNames.TryGetValue(type, out _)) return;
             _TableNames.Add(type, ((TableAttribute) tableAttribue).Name);
 
-            var propertyNamesDictionary = new Dictionary<string, string>();
+            //var propertyNamesDictionary = new Dictionary<string, string>();
 
             var columns = new List<string>();
             var columnsNoIdentities = new List<string>();
@@ -331,11 +357,17 @@ namespace EntityKata
                 columns.Add(columnName);
                 var identityAttribute = property.GetCustomAttribute(typeof(AutoIncrementAttribute));
                 if (identityAttribute is null) columnsNoIdentities.Add(columnName);
-                propertyNamesDictionary.Add(property.Name, columnName);
+                //propertyNamesDictionary.Add(property.Name, columnName);
+                
+                // skip if the name is already in the dictionary
+                if (_propertieNamesByFieldName.TryGetValue(fieldName, out _)) continue;
+                _propertieNamesByFieldName.Add(fieldName, property.Name);
             }
 
             _ColumnNames.Add(type, columns.ToArray());
             _ColumnNamesWithoutAutoincrement.Add(type, columnsNoIdentities.ToArray());
+
+            _lastJoinedType = type;
         }
 
         /// <summary>
@@ -344,7 +376,13 @@ namespace EntityKata
         /// <returns></returns>
         private Query GetSelect()
         {
-            return Query.Select(_ColumnNames[_mainType]);
+            var columnsNames = new List<string>();
+            foreach (var columns in _ColumnNames)
+            {
+                columnsNames.AddRange(columns.Value);
+            }
+            
+            return Query.Select(columnsNames.ToArray());
         }
 
         /// <summary>
@@ -387,6 +425,34 @@ namespace EntityKata
             var returnValue = FillAllWithData(GetSelect().Get(transaction));
             InitializeQuery();
             return returnValue;
+        }
+        
+        public dynamic GetDynamic(IDbTransaction transaction = null)
+        {
+            var returnValue = fillDynamicWithRecords(GetSelect().Get(transaction));
+            InitializeQuery();
+            return returnValue;
+        }
+
+        private dynamic fillDynamicWithRecords(dynamic records)
+        {
+            var newMappedRecord = new List<ExpandoObject>();
+
+            foreach (IDictionary<string, object> record in records as List<object>)
+            {
+                var newRecord = new ExpandoObject();
+                var newRecordDictionary = (IDictionary<string, object>) newRecord;
+                
+                    foreach (var item in record)
+                    {
+                        if (newRecordDictionary.TryGetValue(_propertieNamesByFieldName[item.Key], out _)) continue;
+                        newRecordDictionary.Add(_propertieNamesByFieldName[item.Key], item.Value);
+                    }
+
+                    newMappedRecord.Add(newRecord);
+            }
+            
+            return newMappedRecord;
         }
 
         /// <summary>
@@ -521,6 +587,70 @@ namespace EntityKata
                     property.SetValue(instance, dati[((FieldAttribute) attribute).Name]);
                 }
             }
+        }
+
+        /// <summary>
+        /// Join clause
+        /// </summary>
+        /// <param name="columns"></param>
+        /// <typeparam name="J"></typeparam>
+        public EntityManager<T> Join<J>(Expression<Func<object, Expression<Func<object, object>>>> columns)
+        {
+           return Join<J>(new [] {columns});
+        }
+        
+        /// <summary>
+        /// Join clause, multiple columns
+        /// </summary>
+        /// <param name="columnsList"></param>
+        /// <typeparam name="TJ"></typeparam>
+        public EntityManager<T> Join<TJ>(params Expression<Func<object, Expression<Func<object, object>>>>[] columnsList)
+        {
+            var previousType = _lastJoinedType; 
+            updateTableNameAndFieldsCache(typeof(TJ));
+
+            foreach (var columns in columnsList)
+            {
+                var first = columns.Parameters[0].Name;
+                var leftTableProperty = previousType.GetProperty(first);
+                if (leftTableProperty == null) throw new ArgumentException("Property not in the left table type");
+                var leftTableColumAttribute = leftTableProperty.GetCustomAttribute(typeof(FieldAttribute));
+                if (leftTableColumAttribute == null) throw new ArgumentException($"Property {leftTableColumAttribute} is not a column");
+                var firstColumnName = _TableNames[previousType] + "." + ((FieldAttribute)leftTableColumAttribute).Name;
+                
+                var second = ((Expression<Func<object, object>>) ((UnaryExpression) columns.Body).Operand)
+                    .Parameters[0].Name;
+                
+                var rightTableProperty = _lastJoinedType.GetProperty(second);
+                if (rightTableProperty == null) throw new ArgumentException("Property not in the right table type");
+                var rightTableColumnAttribute = rightTableProperty.GetCustomAttribute(typeof(FieldAttribute));
+                if (rightTableColumnAttribute == null) throw new ArgumentException($"Property {rightTableColumnAttribute} is not a column");
+                
+                var secondColumnName = _TableNames[_lastJoinedType] + "." + ((FieldAttribute)rightTableColumnAttribute).Name;
+                
+                // var value =
+                //     ((ConstantExpression)
+                //         ((UnaryExpression) ((Expression<Func<object, object>>) ((UnaryExpression) function.Body).Operand)
+                //             .Body).Operand).Value;
+                var value =
+                    ((ConstantExpression) ((Expression<Func<object, object>>) ((UnaryExpression) columns.Body).Operand)
+                        .Body).Value;
+
+                Query.Join(_TableNames[_lastJoinedType], firstColumnName, secondColumnName, value.ToString());
+            
+            }
+
+            return this;
+        }
+        
+        public void JoinTemp<T1>(Expression<Func<object, object>> function)
+        {
+            Console.WriteLine(function.Parameters[0].Name);
+
+            Console.WriteLine(((NewExpression)function.Body).Members[0].Name);
+            
+            Console.WriteLine(((NewExpression)function.Body).Arguments[0]);
+            
         }
     }
 }
