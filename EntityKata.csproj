@@ -18,7 +18,7 @@
 	    <RepositoryType>git</RepositoryType>
 	    <PackageTags>sql;query-builder;dynamic-query:sqlkata:entity</PackageTags>
 	    <LangVersion>7.3</LangVersion>
-	    <PackageVersion>1.1.0-alpha</PackageVersion>
+	    <PackageVersion>1.1.1-alpha</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
