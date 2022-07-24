@@ -49,6 +49,10 @@ namespace EntityKata
         /// </summary>
         private Dictionary<Type, IEnumerable<PropertyInfo>> _properties = new Dictionary<Type, IEnumerable<PropertyInfo>>();
 
+        /// <summary>
+        /// constructor
+        /// </summary>
+        /// <param name="sqlKataFactory"></param>
         public EntityManager(QueryFactory sqlKataFactory)
         {
             _kataFactory = sqlKataFactory;
@@ -60,6 +64,9 @@ namespace EntityKata
             InitializeQuery();
         }
 
+        /// <summary>
+        /// resets the query object to the initial state 
+        /// </summary>
         private void InitializeQuery()
         {
             Query = _kataFactory.Query(_TableNames[_mainType]);
@@ -70,8 +77,8 @@ namespace EntityKata
         /// <summary>
         /// Order by single column ASC
         /// </summary>
-        /// <param name="column"></param>
-        /// <param name="type"></param>
+        /// <param name="column">Column to use</param>
+        /// <param name="type">Optional type if the column belongs to a joined table</param>
         /// <returns></returns>
         public EntityManager<T> OrderBy(string column, Type type = null)
         {
@@ -82,8 +89,8 @@ namespace EntityKata
         /// <summary>
         /// Order by single column DESC
         /// </summary>
-        /// <param name="column"></param>
-        /// <param name="type"></param>
+        /// <param name="column">Column to use</param>
+        /// <param name="type">Optional type if the column belongs to a joined table</param>
         /// <returns></returns>
         public EntityManager<T> OrderByDesc(string column, Type type = null)
         {
@@ -94,8 +101,8 @@ namespace EntityKata
         /// <summary>
         /// Order by multiple columns ASC
         /// </summary>
-        /// <param name="columns"></param>
-        /// <param name="type"></param>
+        /// <param name="columns">Multiple columns used to order</param>
+        /// <param name="type">Optional type if the columns belong to a joined table</param>
         /// <returns></returns>
         public EntityManager<T> OrderBy(string[] columns, Type type = null)
         {
@@ -106,8 +113,8 @@ namespace EntityKata
         /// <summary>
         /// Order by multiple columns DESC
         /// </summary>
-        /// <param name="columns"></param>
-        /// <param name="type"></param>
+        /// <param name="columns">Multiple columns used to order</param>
+        /// <param name="type">Optional type if the columns belong to a joined table</param>/// <param name="type"></param>
         /// <returns></returns>
         public EntityManager<T> OrderByDesc(string[] columns, Type type = null)
         {
@@ -175,7 +182,6 @@ namespace EntityKata
                 if (referenceProperty is null)
                     throw new ArgumentException($"Property {column} is not matching type {typeOfColumnsObject.Name}");
 
-
                 var attribute = referenceProperty.GetCustomAttribute(typeof(FieldAttribute));
                 if (attribute != null)
                 {
@@ -185,7 +191,33 @@ namespace EntityKata
 
             return orderByColumnsList;
         }
-        
+
+        /// <summary>
+        /// Where clause using expression
+        /// </summary>
+        /// <param name="where"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public EntityManager<T> Where(Expression<Func<object, object>> where, Type type = null)
+        {
+            var fieldName = where.Parameters[0].Name;
+            var value = ((ConstantExpression) ((UnaryExpression) where.Body).Operand).Value;
+
+            var referenceTypeForWhereClause = type ?? typeof(T);
+
+            var property = referenceTypeForWhereClause.GetProperty(fieldName);
+            if (property == null) throw new ArgumentException("Property not found for the the reference type");
+            
+            var attribute = property.GetCustomAttribute(typeof(FieldAttribute));
+            if (attribute == null) throw new ArgumentException("Not a field");
+             
+            Query.Where(_TableNames[referenceTypeForWhereClause] + "." + ((FieldAttribute) attribute).Name, value);
+            
+            return this;
+        }
+
+
         /// <summary>
         /// Where clause
         /// </summary>
@@ -260,14 +292,6 @@ namespace EntityKata
             
             return this;
         }
-        
-        // public EntityManager<T> Join<J>(string first, string second, string op = "=", string joinType = "inner join")
-        // {
-        //     
-        //     
-        //     return this;
-        // }
-        
 
         /// <summary>
         /// Delete records from table
@@ -434,6 +458,11 @@ namespace EntityKata
             return returnValue;
         }
 
+        /// <summary>
+        /// Fills a dynamic object with the data from the database, using the entitis properties names as keys
+        /// </summary>
+        /// <param name="records"></param>
+        /// <returns></returns>
         private dynamic fillDynamicWithRecords(dynamic records)
         {
             var newMappedRecord = new List<ExpandoObject>();
@@ -615,7 +644,7 @@ namespace EntityKata
                 var leftTableProperty = previousType.GetProperty(first);
                 if (leftTableProperty == null) throw new ArgumentException("Property not in the left table type");
                 var leftTableColumAttribute = leftTableProperty.GetCustomAttribute(typeof(FieldAttribute));
-                if (leftTableColumAttribute == null) throw new ArgumentException($"Property {leftTableColumAttribute} is not a column");
+                if (leftTableColumAttribute == null) throw new ArgumentException($"Property {leftTableProperty.Name} is not a column");
                 var firstColumnName = _TableNames[previousType] + "." + ((FieldAttribute)leftTableColumAttribute).Name;
                 
                 var second = ((Expression<Func<object, object>>) ((UnaryExpression) columns.Body).Operand)
@@ -624,7 +653,7 @@ namespace EntityKata
                 var rightTableProperty = _lastJoinedType.GetProperty(second);
                 if (rightTableProperty == null) throw new ArgumentException("Property not in the right table type");
                 var rightTableColumnAttribute = rightTableProperty.GetCustomAttribute(typeof(FieldAttribute));
-                if (rightTableColumnAttribute == null) throw new ArgumentException($"Property {rightTableColumnAttribute} is not a column");
+                if (rightTableColumnAttribute == null) throw new ArgumentException($"Property {rightTableProperty.Name} is not a column");
                 
                 var secondColumnName = _TableNames[_lastJoinedType] + "." + ((FieldAttribute)rightTableColumnAttribute).Name;
                 
@@ -643,14 +672,15 @@ namespace EntityKata
             return this;
         }
         
-        public void JoinTemp<T1>(Expression<Func<object, object>> function)
-        {
-            Console.WriteLine(function.Parameters[0].Name);
-
-            Console.WriteLine(((NewExpression)function.Body).Members[0].Name);
-            
-            Console.WriteLine(((NewExpression)function.Body).Arguments[0]);
-            
-        }
+        // public void JoinTemp<T1>(Expression<Func<object, object>> function)
+        // {
+        //     Console.WriteLine(function.Parameters[0].Name);
+        //
+        //     Console.WriteLine(((NewExpression)function.Body).Members[0].Name);
+        //     
+        //     Console.WriteLine(((NewExpression)function.Body).Arguments[0]);
+        //     
+        // }
+        
     }
 }

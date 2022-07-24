@@ -10,8 +10,12 @@ If a property doesn't have the field attribute it will be skipped.
 
 This is the first release for optimization and testing. 
 
-## More methods (and examples) will be added soon.
+## Last changes
+Added first support for joins. 
+At the current state the project is a playground. I'm trying to find the best syntax for the code, to have a simple and clean code (as much as possible).
+I'm open to suggestions. Thanks in advance.
 
+## Examples
 ### Having the Table:
 ``` mysql
 create table people
@@ -73,6 +77,7 @@ foreach (var person in people)
 // Both of the following are valid    
 people = peopleManager.Where(new Person {Id = 2}).Get();
 people = peopleManager.Where(new {Id = 2}).Get();
+people = peopleManager.Where(Id => 2).Get();
 people = peopleManager.Where(new {Id = new GreaterThan(2)}).Get();
 people = peopleManager.Where(new {Id = new GreaterThan {Value = 2}}).Get();
 
@@ -130,5 +135,12 @@ people = peopleManager.Order(new
 
 foreach (var person in people) Console.WriteLine("{0} {1}", person.FirstName, person.LastName);
 
+// First tentative syntax for joins
+var p = peopleManager.Join<Order>(Id => PersonId => "=").OrderBy(nameof(Person.LastName)).GetDynamic();
+
+foreach (var person in p)
+{
+    Console.WriteLine(person.FirstName + " " + person.LastName + " " + person.Notes + " " + person.ItemId);
+}
 
 ```
